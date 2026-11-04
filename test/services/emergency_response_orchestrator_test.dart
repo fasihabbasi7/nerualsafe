@@ -36,6 +36,7 @@ void main() {
         riskTier: tier,
         contributingModules: const {'behavior': 1.0},
       ),
+      boostedScore: score,
       evaluatedAt: fixedNow,
       windowKey: '1h',
     );

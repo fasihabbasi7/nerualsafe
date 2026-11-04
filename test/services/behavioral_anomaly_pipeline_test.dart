@@ -17,7 +17,7 @@ void main() {
       recorded = [];
       notifier = AnomalyResultNotifier(
         saveEntry: (result,
-            {required evaluatedAt, required windowKey}) async {},
+            {required evaluatedAt, required windowKey, classification}) async {},
       );
       notifier.history.listen(recorded.add);
     });

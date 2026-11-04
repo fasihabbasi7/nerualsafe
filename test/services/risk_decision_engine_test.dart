@@ -229,10 +229,12 @@ void main() {
       final engine = RiskDecisionEngine(anomalyStream: controller.stream);
 
       engine.start();
-      controller.add(_evaluatedEntry(aggregateScore: 99.0)); // highDanger-tier
+      controller.add(_evaluatedEntry(aggregateScore: 99.0));
       await Future<void>.delayed(Duration.zero);
 
-      expect(engine.latest!.riskTier, RiskTier.highDanger);
+      // A single, un-sustained module at 99 stays below highDangerMin
+      // (110) by design (NFR-S4: a brief spike alone never alerts).
+      expect(engine.latest!.riskTier, RiskTier.mediumRisk);
       // Reaching this line without any external call having been
       // possible (none were injected) confirms the "state only, no
       // action" contract.
@@ -293,6 +295,58 @@ void main() {
       // text score of 90 should still be contributing here
       final expected = (0.35 / 0.55) * 90.0 + (0.20 / 0.55) * 10.0;
       expect(engine.latest!.fusionResult.finalScore, closeTo(expected, 1e-6));
+
+      await engine.stop();
+      await controller.close();
+      await engine.dispose();
+    });
+
+    test('voice 100 + text 100 + calm behavior reaches highDanger '
+        '(two corroborating modules)', () async {
+      final controller = StreamController<AnomalyResultLogEntry>();
+      final engine = RiskDecisionEngine(anomalyStream: controller.stream);
+      engine.start();
+      controller.add(_evaluatedEntry(aggregateScore: 0.0));
+      await Future<void>.delayed(Duration.zero);
+      engine.submitVoiceScore(100.0);
+      engine.submitTextScore(100.0);
+
+      expect(engine.latest!.riskTier, RiskTier.highDanger);
+
+      await engine.stop();
+      await controller.close();
+      await engine.dispose();
+    });
+
+    test('text alone at 100 never reaches highDanger', () async {
+      final controller = StreamController<AnomalyResultLogEntry>();
+      final engine = RiskDecisionEngine(anomalyStream: controller.stream);
+      engine.start();
+      engine.submitTextScore(100.0);
+
+      expect(engine.latest!.riskTier, isNot(RiskTier.highDanger));
+
+      await engine.stop();
+      await controller.close();
+      await engine.dispose();
+    });
+
+    test('an old text score expires and stops corroborating voice', () async {
+      var now = DateTime(2026, 10, 31, 12, 0, 0);
+      final controller = StreamController<AnomalyResultLogEntry>();
+      final engine = RiskDecisionEngine(
+        anomalyStream: controller.stream,
+        clock: () => now,
+      );
+      engine.start();
+      engine.submitTextScore(100.0);
+
+      now = now.add(const Duration(seconds: 61));
+      engine.submitVoiceScore(100.0); // text is now stale and ignored
+
+      expect(engine.latest!.fusionResult.contributingModules.keys,
+          ['voice']);
+      expect(engine.latest!.riskTier, isNot(RiskTier.highDanger));
 
       await engine.stop();
       await controller.close();

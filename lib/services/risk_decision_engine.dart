@@ -13,7 +13,12 @@ class RiskDecisionEngine {
     required Stream<AnomalyResultLogEntry> anomalyStream,
     DangerScoreFusionEngine? fusionEngine,
     SustainedDangerTracker? sustainedDangerTracker,
+    DateTime Function()? clock,
+    this.textScoreTtl = const Duration(seconds: 60),
+    this.voiceScoreTtl = const Duration(seconds: 30),
+    this.corroborationMin = 75.0,
   })  : _anomalyStream = anomalyStream,
+        _clock = clock ?? DateTime.now,
         _fusionEngine = fusionEngine ?? const DangerScoreFusionEngine(),
         _sustainedTracker = sustainedDangerTracker ?? SustainedDangerTracker(),
         _controller = StreamController<RiskDecision>.broadcast();
@@ -58,7 +63,33 @@ class RiskDecisionEngine {
   double? _latestTextScore;
   double? _latestVoiceScore;
 
+  final DateTime Function() _clock;
+
+  /// A typed message or a voice reading only describes "right now".
+  /// Without a time limit an old score would keep counting forever and
+  /// could combine with a later, unrelated signal into a false alert.
+  /// Behavior is NOT expired here: it only updates every 2 minutes and
+  /// describes a longer pattern, not a single moment.
+  final Duration textScoreTtl;
+  final Duration voiceScoreTtl;
+
+  /// Two independent modules both at/above this score (and both still
+  /// fresh) count as corroborated danger. A single module alone
+  /// (e.g. one fake typed message) can never trigger this.
+  final double corroborationMin;
+
+  DateTime? _textScoreAt;
+  DateTime? _voiceScoreAt;
+  Timer? _textExpiryTimer;
+  Timer? _voiceExpiryTimer;
+
   Stream<RiskDecision> get decisions => _controller.stream;
+
+  /// Latest per-module scores that fed the current decision (null = no
+  /// data, or expired). Read-only, for display.
+  double? get latestVoiceScore => _latestVoiceScore;
+  double? get latestTextScore => _latestTextScore;
+  double? get latestBehaviorScore => _latestBehaviorScore;
 
   void start() {
     if (_subscription != null) return;
@@ -68,12 +99,16 @@ class RiskDecisionEngine {
   Future<void> stop() async {
     await _subscription?.cancel();
     _subscription = null;
+    _textExpiryTimer?.cancel();
+    _voiceExpiryTimer?.cancel();
     // So a later restart's first decision isn't boosted off a
     // sustained period that happened before this stop.
     _sustainedTracker.reset();
   }
 
   Future<void> dispose() async {
+    _textExpiryTimer?.cancel();
+    _voiceExpiryTimer?.cancel();
     await _controller.close();
   }
 
@@ -83,6 +118,10 @@ class RiskDecisionEngine {
     String windowKey = 'text-event',
   }) {
     _latestTextScore = score;
+    _textScoreAt = _clock();
+    _textExpiryTimer?.cancel();
+    _textExpiryTimer = Timer(textScoreTtl + const Duration(milliseconds: 100),
+        () => _emitDecision(evaluatedAt: _clock(), windowKey: 'text-expired'));
     _emitDecision(
       evaluatedAt: evaluatedAt ?? DateTime.now(),
       windowKey: windowKey,
@@ -95,6 +134,10 @@ class RiskDecisionEngine {
     String windowKey = 'voice-event',
   }) {
     _latestVoiceScore = score;
+    _voiceScoreAt = _clock();
+    _voiceExpiryTimer?.cancel();
+    _voiceExpiryTimer = Timer(voiceScoreTtl + const Duration(milliseconds: 100),
+        () => _emitDecision(evaluatedAt: _clock(), windowKey: 'voice-expired'));
     _emitDecision(
       evaluatedAt: evaluatedAt ?? DateTime.now(),
       windowKey: windowKey,
@@ -123,6 +166,17 @@ class RiskDecisionEngine {
 
   void _emitDecision(
       {required DateTime evaluatedAt, required String windowKey}) {
+    final now = _clock();
+    if (_textScoreAt != null && now.difference(_textScoreAt!) > textScoreTtl) {
+      _latestTextScore = null;
+      _textScoreAt = null;
+    }
+    if (_voiceScoreAt != null &&
+        now.difference(_voiceScoreAt!) > voiceScoreTtl) {
+      _latestVoiceScore = null;
+      _voiceScoreAt = null;
+    }
+
     final fusionResult = _fusionEngine.fuse({
       'voice': _latestVoiceScore,
       'text': _latestTextScore,
@@ -133,10 +187,26 @@ class RiskDecisionEngine {
     // then classify THAT (not fusionResult's own pre-boost riskTier)
     // against thresholds that assume the post-boost 0-120 scale. See
     // SustainedDangerTracker's and RiskThresholds' doc comments.
-    final boostedScore = _sustainedTracker.apply(
+    var boostedScore = _sustainedTracker.apply(
       fusionResult.finalScore,
       now: evaluatedAt,
     );
+
+    // Corroboration: the weighted average alone can never reach High
+    // Danger when one module is calm (e.g. voice 100 + text 100 +
+    // behavior 0 = 80, +20 boost = 100 < 110). If two independent
+    // modules are BOTH clearly dangerous at the same time, that is
+    // strong evidence by itself, so lift the score to the High Danger
+    // line. One module alone never does this.
+    final highModules = [
+      _latestVoiceScore,
+      _latestTextScore,
+      _latestBehaviorScore,
+    ].where((v) => v != null && v >= corroborationMin).length;
+    if (highModules >= 2 &&
+        boostedScore < _fusionEngine.thresholds.highDangerMin) {
+      boostedScore = _fusionEngine.thresholds.highDangerMin;
+    }
     final riskTier = classify(boostedScore, thresholds: _fusionEngine.thresholds);
 
     final decision = RiskDecision(

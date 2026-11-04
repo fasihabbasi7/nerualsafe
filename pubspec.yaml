@@ -52,3 +52,14 @@ flutter:
     # (BehavioralClassifier), trained by
     # tools/behavioral_model/generate_and_train.py
     - assets/ml/behavioral_classifier_model.json
+
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora-Variable.ttf
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-Variable.ttf
+    - family: NotoNaskhArabic
+      fonts:
+        - asset: assets/fonts/NotoNaskhArabic-Variable.ttf

@@ -20,7 +20,7 @@ void main() {
 
       final fixedNow = DateTime(2026, 3, 1, 12, 0, 0);
       final notifier = AnomalyResultNotifier(
-        saveEntry: (result, {required evaluatedAt, required windowKey}) async {
+        saveEntry: (result, {required evaluatedAt, required windowKey, classification}) async {
           savedResult = result;
           savedEvaluatedAt = evaluatedAt;
           savedWindowKey = windowKey;
@@ -40,7 +40,7 @@ void main() {
     test('latest reflects the most recently recorded entry', () async {
       final notifier = AnomalyResultNotifier(
         saveEntry: (result,
-            {required evaluatedAt, required windowKey}) async {},
+            {required evaluatedAt, required windowKey, classification}) async {},
         clock: () => DateTime(2026, 3, 1, 12, 0, 0),
       );
 
@@ -59,7 +59,7 @@ void main() {
       final received = <String>[];
       final notifier = AnomalyResultNotifier(
         saveEntry: (result,
-            {required evaluatedAt, required windowKey}) async {},
+            {required evaluatedAt, required windowKey, classification}) async {},
         clock: () => DateTime(2026, 3, 1, 12, 0, 0),
       );
 
@@ -82,7 +82,7 @@ void main() {
         'high aggregateScore is recorded identically to a low one', () async {
       final savedResults = <AnomalyResult>[];
       final notifier = AnomalyResultNotifier(
-        saveEntry: (result, {required evaluatedAt, required windowKey}) async {
+        saveEntry: (result, {required evaluatedAt, required windowKey, classification}) async {
           savedResults.add(result);
         },
         clock: () => DateTime(2026, 3, 1, 12, 0, 0),
@@ -124,7 +124,7 @@ void main() {
 
       final savedResults = <AnomalyResult>[];
       final notifier = AnomalyResultNotifier(
-        saveEntry: (result, {required evaluatedAt, required windowKey}) async {
+        saveEntry: (result, {required evaluatedAt, required windowKey, classification}) async {
           savedResults.add(result);
         },
         clock: () => DateTime(2026, 3, 1, 12, 0, 0),

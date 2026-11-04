@@ -5,11 +5,13 @@ import '../models/user_profile.dart';
 import '../services/emergency_contact_repository.dart';
 import '../services/onboarding_repository.dart';
 import '../services/user_profile_repository.dart';
+import '../theme/ns_theme.dart';
+import '../widgets/ns_widgets.dart';
+import 'live_state.dart';
 
-/// Minimal setup form for Phase 2 Step 6. Collects exactly what the
-/// existing Phase 2 models need: user name, preferred language, and
-/// one emergency contact (always saved as primary — multi-contact
-/// management is a later phase).
+/// Setup form: user name, preferred language, and one emergency contact
+/// (always saved as primary). Same data and validation as before the
+/// redesign; only the look changed.
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
@@ -37,8 +39,8 @@ class _SetupScreenState extends State<SetupScreen> {
   void initState() {
     super.initState();
 
-    // Fire-and-forget, but with its own error handling so a failure
-    // here can't throw an unhandled exception during widget init.
+    // Fire-and-forget, with its own error handling so a failure here
+    // can't throw an unhandled exception during widget init.
     _markOnboardingStarted();
 
     _existingProfile = _profileRepo.load();
@@ -104,6 +106,7 @@ class _SetupScreenState extends State<SetupScreen> {
       await _contactRepo.save(contact);
 
       await _onboardingRepo.markComplete();
+      LiveState.instance.touch();
 
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -114,76 +117,80 @@ class _SetupScreenState extends State<SetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.ns;
     return Scaffold(
-      appBar: AppBar(title: const Text('Setup')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text('Your Info',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Your name'),
-              validator: (value) => (value == null || value.trim().isEmpty)
-                  ? 'Name is required'
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _preferredLanguage,
-              decoration:
-                  const InputDecoration(labelText: 'Preferred language'),
-              items: const [
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(value: 'ur', child: Text('Urdu')),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _preferredLanguage = value);
-                }
-              },
-            ),
-            const SizedBox(height: 24),
-            const Text('Emergency Contact',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _contactNameController,
-              decoration: const InputDecoration(labelText: 'Contact name'),
-              validator: (value) => (value == null || value.trim().isEmpty)
-                  ? 'Contact name is required'
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _contactPhoneController,
-              decoration:
-                  const InputDecoration(labelText: 'Contact phone number'),
-              keyboardType: TextInputType.phone,
-              validator: (value) => (value == null || value.trim().isEmpty)
-                  ? 'Contact phone number is required'
-                  : null,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This contact is automatically set as primary.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _isSaving ? null : _handleSave,
-              child: _isSaving
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save'),
-            ),
-          ],
+      backgroundColor: c.bg,
+      appBar: AppBar(
+        backgroundColor: c.bg,
+        foregroundColor: c.ink,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            children: [
+              const NsLabel('Setup'),
+              const SizedBox(height: 6),
+              Text('Tell us who you are',
+                  style: NsText.head(26, w: 600, color: c.ink, height: 1.15)),
+              const SizedBox(height: 22),
+              const NsLabel('Your info'),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _nameController,
+                style: NsText.body(15, w: 600, color: c.ink),
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Your name'),
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Name is required'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              NsSegmented(
+                labels: const ['English', 'اردو'],
+                urduIndex: 1,
+                selected: _preferredLanguage == 'ur' ? 1 : 0,
+                onChanged: (i) =>
+                    setState(() => _preferredLanguage = i == 1 ? 'ur' : 'en'),
+              ),
+              const SizedBox(height: 24),
+              const NsLabel('Emergency contact'),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _contactNameController,
+                style: NsText.body(15, w: 600, color: c.ink),
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Contact name'),
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Contact name is required'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _contactPhoneController,
+                style: NsText.body(15, w: 600, color: c.ink),
+                keyboardType: TextInputType.phone,
+                decoration:
+                    const InputDecoration(labelText: 'Contact phone number'),
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Contact phone number is required'
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This contact is automatically set as primary. They get your '
+                'location by SMS in an emergency.',
+                style: NsText.body(12, color: c.mute, height: 1.5),
+              ),
+              const SizedBox(height: 28),
+              NsButton('Save', onPressed: _isSaving ? null : _handleSave,
+                  loading: _isSaving),
+            ],
+          ),
         ),
       ),
     );

@@ -132,6 +132,16 @@ final List<_Rule> _phraseRules = [
   _Rule(r' cannot (?:take|do|bear|handle|live|go on)\b', 66, 'Distress'),
   _Rule(r' dar+ lag\w* ', 55, 'Distress'),
   _Rule(r' dar+ (?:raha|rahi|gaya|gayi) ', 55, 'Distress'),
+  // Emotional / verbal abuse (no physical violence mentioned): Distress ~55-60.
+  _Rule(r'(?<! (?:mountains?|ocean|oceans|sea|universe|space|stars?|sky|city|skyscrapers?|buildings?|nature|world|view)) (?:makes?|made|making) me (?:feel |felt )?(?:so |very |really |like )?(?:small|worthless|stupid|useless|nothing|a failure|ashamed|dirty|ugly|crazy|a burden|guilty)', 58, 'Distress'),
+  _Rule(r' (?:calls?|called|calling) me (?:a |an )?(?:so |very )?(?:stupid|useless|worthless|ugly|fat|idiot|crazy|bitch|slut|loser|failure|nothing|garbage|trash|dumb|pagal|nikamma|nikammi|bewakoof|jahil|burden)', 58, 'Distress'),
+  _Rule(r' (?:insults?|insulted|insulting|humiliates?|humiliated|humiliating|belittles?|belittled|mocks?|mocked|degrades?|degraded|shames?|shamed|gaslights?|gaslighting|abuses?|abused|abusing) (?:me|her|us) ', 58, 'Distress'),
+  _Rule(r' (?:yells?|yelled|yelling|shouts?|shouted|shouting|screams?|screamed|screaming|swears?|swore|cursed|curses|cusses) (?:at|on) me ', 58, 'Distress'),
+  _Rule(r' (?:says|said|tells|told|telling) me (?:that )?(?:i am|i am a|i am an) (?:so |very )?(?:worthless|useless|stupid|nothing|nobody|ugly|crazy|failure|burden|a burden|a failure|an idiot|an embarrassment)', 58, 'Distress'),
+  _Rule(r' (?:i )?(?:feel|feeling|felt) (?:so |very |really )?(?:worthless|useless|ashamed|broken|empty|like (?:a )?(?:burden|failure|nothing)) ', 55, 'Distress'),
+  _Rule(r' (?:mujhe|mujhko|mujh ko|mjhe) (?:roz |hamesha |bohat |bahut )?(?:gali|gaali|galiyan|gaaliyan|zaleel|beizzat|beizat|bura bhala)', 58, 'Distress'),
+  _Rule(r' (?:gali|gaali|galiyan|gaaliyan) (?:deta|deti|dete|diya|di|dena|dia) ', 58, 'Distress'),
+  _Rule(r' (?:mujh par|mujh pe|mujhpe|mujhpar|mujh per) (?:chillata|chillati|chilla|chillaya|chillate|chikhta|chikhti) ', 58, 'Distress'),
 ];
 final List<_Rule> _tokenRules = [
   _Rule(r'^(?:ki+l+(?:s|ed|ing|er|ers)?)$', 95, 'Violence'),

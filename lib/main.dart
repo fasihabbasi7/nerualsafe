@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/calculator_screen.dart';
+import 'theme/ns_theme.dart';
 import 'services/emergency_alert_dispatcher.dart';
 import 'services/emergency_response_orchestrator.dart';
 import 'services/feature_vault_service.dart';
@@ -23,6 +24,10 @@ void main() async {
   await SecureVaultService.instance.init();
   debugPrint('[NeuralSafe] Secure vault initialized: '
       '${SecureVaultService.instance.isInitialized}');
+
+  // Appearance and Test mode, stored in the encrypted vault (Settings on
+  // the You tab). Must run after the vault is open.
+  AppSettings.load();
 
   // Separate encrypted box from SecureVaultService's — holds
   // BehavioralBaseline and AnomalyResultLogEntry data (Phase 4).
@@ -73,14 +78,16 @@ void main() async {
       // Flip to false again only deliberately, with a real test
       // contact you control (see EmergencyAlertDispatcher's own doc
       // comment).
-      dryRun: true,
+      // Test mode (You tab > Settings). Defaults to true: no real SMS.
+      // Changing it takes effect after the app is restarted.
+      dryRun: AppSettings.testMode,
     ),
   );
   SafetyMonitoringController.instance.configure(
     orchestrator: emergencyOrchestrator,
   );
   debugPrint('[NeuralSafe] Emergency response orchestrator constructed '
-      '(dryRun: true — no real SMS will be sent). Not started: it only '
+      '(dryRun: ${AppSettings.testMode}). Not started: it only '
       'runs while Active Safety Monitoring is switched on.');
 
   runApp(const NeuralSafeApp());
@@ -90,11 +97,16 @@ class NeuralSafeApp extends StatelessWidget {
   const NeuralSafeApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'NeuralSafe',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
-      home: const CalculatorScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppSettings.themeMode,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'NeuralSafe',
+        debugShowCheckedModeBanner: false,
+        themeMode: mode,
+        theme: buildNsTheme(NsColors.light, Brightness.light),
+        darkTheme: buildNsTheme(NsColors.dark, Brightness.dark),
+        home: const CalculatorScreen(),
+      ),
     );
   }
 }
